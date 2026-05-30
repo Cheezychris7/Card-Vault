@@ -616,14 +616,99 @@ function AddCardModal({onAdd,onClose}){
   );
 }
 
+// ── Stats Modal ────────────────────────────────────────────────────────────
+function StatsModal({cards,onClose}){
+  const priced=cards.filter(c=>c.pricing?.avgPrice);
+  const totalValue=priced.reduce((s,c)=>s+c.pricing.avgPrice,0);
+  const bySport={};
+  cards.forEach(c=>{bySport[c.sport]=(bySport[c.sport]||{count:0,value:0});bySport[c.sport].count++;if(c.pricing?.avgPrice)bySport[c.sport].value+=c.pricing.avgPrice;});
+  const sportList=Object.entries(bySport).sort((a,b)=>b[1].value-a[1].value);
+  const topCards=[...priced].sort((a,b)=>b.pricing.avgPrice-a.pricing.avgPrice).slice(0,10);
+  const bySet={};
+  cards.forEach(c=>{const k=c.brand||"Unknown Set";bySet[k]=(bySet[k]||{count:0,value:0});bySet[k].count++;if(c.pricing?.avgPrice)bySet[k].value+=c.pricing.avgPrice;});
+  const setList=Object.entries(bySet).sort((a,b)=>b[1].value-a[1].value).slice(0,8);
+  const bar=(val,max,color="#a3e635")=>(
+    <div style={{background:"#1c1917",borderRadius:"3px",height:"6px",flex:1}}>
+      <div style={{background:color,borderRadius:"3px",height:"6px",width:`${Math.min(100,(val/max)*100)}%`,transition:"width 0.4s"}}/>
+    </div>
+  );
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+      <div style={{background:"#111",border:"1px solid #292524",borderRadius:"20px 20px 0 0",padding:"24px",width:"100%",maxWidth:"700px",maxHeight:"92vh",overflowY:"auto"}}>
+        <div style={{width:"36px",height:"4px",background:"#292524",borderRadius:"2px",margin:"0 auto 20px"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:"20px"}}>
+          <h2 style={{color:"#f5f5f4",margin:0,fontSize:"17px",fontWeight:800}}>📊 Collection Stats</h2>
+          <button onClick={onClose} style={{background:"none",border:"none",color:"#78716c",fontSize:"22px",cursor:"pointer"}}>×</button>
+        </div>
+        {/* Summary */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"10px",marginBottom:"20px"}}>
+          {[["TOTAL CARDS",cards.length,"#f5f5f4"],["PRICED",priced.length,"#f5f5f4"],["EST. VALUE","$"+totalValue.toFixed(2),"#a3e635"]].map(([l,v,col])=>(
+            <div key={l} style={{background:"#0f0f0f",border:"1px solid #1c1917",borderRadius:"10px",padding:"12px"}}>
+              <div style={{color:"#57534e",fontSize:"10px",letterSpacing:"0.08em",marginBottom:"4px"}}>{l}</div>
+              <div style={{color:col,fontSize:"18px",fontFamily:"'Bebas Neue'",letterSpacing:"0.05em"}}>{v}</div>
+            </div>
+          ))}
+        </div>
+        {/* By Sport */}
+        <div style={{marginBottom:"20px"}}>
+          <div style={{color:"#57534e",fontSize:"10px",fontWeight:700,letterSpacing:"0.1em",marginBottom:"10px"}}>VALUE BY TYPE</div>
+          {sportList.map(([sport,data])=>(
+            <div key={sport} style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"7px"}}>
+              <div style={{color:"#a8a29e",fontSize:"11px",minWidth:"140px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sport}</div>
+              {bar(data.value,totalValue||1)}
+              <div style={{color:"#a3e635",fontSize:"11px",fontFamily:"monospace",minWidth:"50px",textAlign:"right"}}>${data.value.toFixed(0)}</div>
+              <div style={{color:"#57534e",fontSize:"10px",minWidth:"28px",textAlign:"right"}}>{data.count}</div>
+            </div>
+          ))}
+        </div>
+        {/* Top 10 cards */}
+        {topCards.length>0&&(
+          <div style={{marginBottom:"20px"}}>
+            <div style={{color:"#57534e",fontSize:"10px",fontWeight:700,letterSpacing:"0.1em",marginBottom:"10px"}}>TOP 10 BY VALUE</div>
+            {topCards.map((card,i)=>(
+              <div key={card.id} style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"5px",padding:"6px 10px",background:"#0f0f0f",borderRadius:"7px"}}>
+                <div style={{color:"#44403c",fontSize:"11px",minWidth:"18px"}}>{i+1}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:"#f5f5f4",fontSize:"12px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{card.player}</div>
+                  <div style={{color:"#57534e",fontSize:"10px"}}>{card.brand||""}{card.cardNumber?" #"+card.cardNumber:""}</div>
+                </div>
+                <div style={{color:"#a3e635",fontWeight:700,fontFamily:"monospace",fontSize:"13px"}}>${card.pricing.avgPrice.toFixed(2)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* By Set */}
+        {setList.length>1&&(
+          <div>
+            <div style={{color:"#57534e",fontSize:"10px",fontWeight:700,letterSpacing:"0.1em",marginBottom:"10px"}}>TOP SETS BY VALUE</div>
+            {setList.map(([set,data])=>(
+              <div key={set} style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"7px"}}>
+                <div style={{color:"#a8a29e",fontSize:"11px",minWidth:"140px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{set}</div>
+                {bar(data.value,setList[0][1].value||1,"#38bdf8")}
+                <div style={{color:"#38bdf8",fontSize:"11px",fontFamily:"monospace",minWidth:"50px",textAlign:"right"}}>${data.value.toFixed(0)}</div>
+                <div style={{color:"#57534e",fontSize:"10px",minWidth:"28px",textAlign:"right"}}>{data.count}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ───────────────────────────────────────────────────────────────
 function App(){
   const[cards,setCards]=useState(()=>{try{return JSON.parse(localStorage.getItem("cv_cards")||"[]");}catch{return [];}});
   const[showManual,setShowManual]=useState(false);
   const[showUpload,setShowUpload]=useState(false);
   const[showScan,setShowScan]=useState(false);
+  const[showStats,setShowStats]=useState(false);
   const[priceAllStatus,setPriceAllStatus]=useState(null);
-  
+  const[search,setSearch]=useState("");
+  const[sortBy,setSortBy]=useState("name"); // name|value|set|sport
+  const[filterSport,setFilterSport]=useState("All");
+  const[selectMode,setSelectMode]=useState(false);
+  const[selected,setSelected]=useState(new Set());
   const nextId=useRef(Math.max(0,...(cards.map(c=>c.id||0)))+1);
 
   useEffect(()=>{localStorage.setItem("cv_cards",JSON.stringify(cards));},[cards]);
@@ -631,13 +716,19 @@ function App(){
   const addCard=form=>setCards(c=>[...c,{...form,id:nextId.current++,pricing:null,loadingPrice:false}]);
   const addCards=forms=>{const n=forms.map(f=>({...f,id:nextId.current++,pricing:null,loadingPrice:false}));setCards(c=>[...c,...n]);};
   const deleteCard=id=>setCards(c=>c.filter(card=>card.id!==id));
+  const deleteSelected=()=>{if(!window.confirm("Delete "+selected.size+" cards?"))return;setCards(c=>c.filter(card=>!selected.has(card.id)));setSelected(new Set());setSelectMode(false);};
+
+  const toggleSelect=id=>setSelected(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
+  const toggleSelectAll=()=>{if(selected.size===filtered.length){setSelected(new Set());}else{setSelected(new Set(filtered.map(c=>c.id)));}};
 
   const lookupPrice=async(id)=>{
-    
+    const cached=getCachedPrice(cards.find(c=>c.id===id));
+    if(cached){setCards(c=>c.map(card=>card.id===id?{...card,pricing:cached}:card));return;}
     setCards(c=>c.map(card=>card.id===id?{...card,loadingPrice:true}:card));
     try{
       const card=cards.find(c=>c.id===id);
       const pricing=await fetchCardPrice(card);
+      setCachedPrice(card,pricing);
       setCards(c=>c.map(card=>card.id===id?{...card,pricing,loadingPrice:false}:card));
     }catch(e){
       setCards(c=>c.map(card=>card.id===id?{...card,loadingPrice:false,pricing:{summary:"Error: "+e.message,avgPrice:null,lowPrice:null,highPrice:null,marketTrend:"Insufficient Data",recentSales:[],searchQuery:cards.find(c=>c.id===id)?.player||""}}:card));
@@ -659,12 +750,11 @@ function App(){
     const paidCards=uncached.length-freeMTG-freePoke;
     const estSec=freeMTG*1+freePoke*1+paidCards*3;
     const estMin=estSec<60?"<1":Math.ceil(estSec/60);
-    const estCost=(paidCards*0.002).toFixed(2);
     const breakdown=[];
     if(freeMTG>0)breakdown.push(freeMTG+" MTG (free via Scryfall)");
     if(freePoke>0)breakdown.push(freePoke+" Pokemon (free via TCGPlayer)");
-    if(paidCards>0)breakdown.push(paidCards+" other (~$"+estCost+" API cost)");
-    if(!window.confirm("Fetch prices for "+uncached.length+" cards?\nEst. time: ~"+estMin+" min\n\n"+breakdown.join("\n")+"\n\nRate limited requests retry automatically."))return;
+    if(paidCards>0)breakdown.push(paidCards+" other (~$"+(paidCards*0.002).toFixed(2)+" API cost)");
+    if(!window.confirm("Fetch prices for "+uncached.length+" cards?\nEst. time: ~"+estMin+" min\n\n"+breakdown.join("\n")+"\n\nCached prices (7 days) are skipped."))return;
     for(let i=0;i<uncached.length;i++){
       const card=uncached[i];
       setPriceAllStatus({current:i+1,total:uncached.length,cardName:card.player,retrying:false});
@@ -687,10 +777,42 @@ function App(){
           }
         }
       }
-      if(i<uncached.length-1)await sleep(3000);
+      const isFreeApi=card.sport==="Magic: The Gathering"||card.sport==="Pokemon";
+      if(i<uncached.length-1)await sleep(isFreeApi?500:3000);
     }
     setPriceAllStatus(null);
   };
+
+  const exportCSV=()=>{
+    const headers=["Name","Sport","Year","Brand","Card #","Condition","Grade","Grader","Rookie","Notes","Avg Price","Low Price","High Price","Market Trend","Data Source"];
+    const rows=cards.map(c=>[
+      c.player,c.sport,c.year,c.brand,c.cardNumber,c.condition,c.grade,c.gradeType,c.rookie?"Yes":"No",c.notes,
+      c.pricing?.avgPrice!=null?c.pricing.avgPrice.toFixed(2):"",
+      c.pricing?.lowPrice!=null?c.pricing.lowPrice.toFixed(2):"",
+      c.pricing?.highPrice!=null?c.pricing.highPrice.toFixed(2):"",
+      c.pricing?.marketTrend||"",c.pricing?.dataSource||""
+    ].map(v=>`"${String(v||"").replace(/"/g,'""')}"`));
+    const csv=[headers.join(","),...rows.map(r=>r.join(","))].join("\n");
+    const blob=new Blob([csv],{type:"text/csv"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download="card-vault-export.csv";a.click();URL.revokeObjectURL(url);
+  };
+
+  // Filter + sort
+  const sports=["All",...[...new Set(cards.map(c=>c.sport))].sort()];
+  const filtered=cards
+    .filter(c=>{
+      if(filterSport!=="All"&&c.sport!==filterSport)return false;
+      if(!search.trim())return true;
+      const q=search.toLowerCase();
+      return c.player.toLowerCase().includes(q)||c.brand.toLowerCase().includes(q)||c.cardNumber.toLowerCase().includes(q)||(c.notes||"").toLowerCase().includes(q);
+    })
+    .sort((a,b)=>{
+      if(sortBy==="value")return (b.pricing?.avgPrice||0)-(a.pricing?.avgPrice||0);
+      if(sortBy==="set")return (a.brand||"").localeCompare(b.brand||"");
+      if(sortBy==="sport")return a.sport.localeCompare(b.sport);
+      return a.player.localeCompare(b.player);
+    });
 
   const totalValue=cards.reduce((s,c)=>s+(c.pricing?.avgPrice||0),0);
   const priced=cards.filter(c=>c.pricing?.avgPrice).length;
@@ -698,28 +820,51 @@ function App(){
   return(
     <div style={{minHeight:"100vh",background:"#0a0a0a",color:"#f5f5f4",fontFamily:"'DM Mono','Courier New',monospace",paddingBottom:"env(safe-area-inset-bottom)"}}>
       {/* Header */}
-      <div style={{borderBottom:"1px solid #1c1917",padding:"16px 16px",paddingTop:"max(16px, env(safe-area-inset-top))",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#0a0a0a",position:"sticky",top:0,zIndex:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-          <div style={{background:"#1a2e05",border:"1px solid #365314",borderRadius:"9px",padding:"7px"}}><CardIcon/></div>
-          <div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"20px",letterSpacing:"0.1em",color:"#a3e635"}}>CARD VAULT</div>
-            <div style={{color:"#57534e",fontSize:"10px"}}>{cards.length} cards · Multi-Platform Tracker</div>
+      <div style={{borderBottom:"1px solid #1c1917",padding:"12px 16px",paddingTop:"max(12px, env(safe-area-inset-top))",background:"#0a0a0a",position:"sticky",top:0,zIndex:10}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"10px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+            <div style={{background:"#1a2e05",border:"1px solid #365314",borderRadius:"9px",padding:"7px"}}><CardIcon/></div>
+            <div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"20px",letterSpacing:"0.1em",color:"#a3e635"}}>CARD VAULT</div>
+              <div style={{color:"#57534e",fontSize:"10px"}}>{filtered.length}{search||filterSport!=="All"?" of "+cards.length:""} cards</div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:"5px",alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+            {cards.length>0&&<button onClick={lookupAll} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#a8a29e",padding:"6px 9px",fontSize:"11px",cursor:"pointer"}}>Price All</button>}
+            {cards.length>0&&<button onClick={()=>setShowStats(true)} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#a8a29e",padding:"6px 9px",fontSize:"11px",cursor:"pointer"}}>📊</button>}
+            {cards.length>0&&<button onClick={exportCSV} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#a8a29e",padding:"6px 9px",fontSize:"11px",cursor:"pointer"}}>⬇ CSV</button>}
+            {cards.length>0&&<button onClick={()=>{setSelectMode(s=>!s);setSelected(new Set());}} style={{background:selectMode?"#450a0a":"#1c1917",border:`1px solid ${selectMode?"#7f1d1d":"#292524"}`,borderRadius:"7px",color:selectMode?"#f87171":"#a8a29e",padding:"6px 9px",fontSize:"11px",cursor:"pointer"}}>Select</button>}
+            <button onClick={()=>setShowUpload(true)} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#d6d3d1",padding:"6px 9px",fontSize:"11px",cursor:"pointer",display:"flex",alignItems:"center",gap:"4px"}}><UploadIcon/>Import</button>
+            <button onClick={()=>setShowScan(true)} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#d6d3d1",padding:"6px 9px",fontSize:"11px",cursor:"pointer"}}>📷</button>
+            <button onClick={()=>setShowManual(true)} style={{background:"#a3e635",border:"none",borderRadius:"7px",color:"#0a0a0a",padding:"6px 10px",fontSize:"11px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:"4px"}}><PlusIcon/>Add</button>
           </div>
         </div>
-        <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-          {cards.length>0&&<button onClick={lookupAll} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#a8a29e",padding:"7px 10px",fontSize:"11px",cursor:"pointer"}}>Price All</button>}
-          <button onClick={()=>setShowUpload(true)} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#d6d3d1",padding:"7px 10px",fontSize:"11px",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px"}}><UploadIcon/>Import</button>
-          <button onClick={()=>setShowScan(true)} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#d6d3d1",padding:"7px 10px",fontSize:"11px",cursor:"pointer"}}>📷</button><button onClick={()=>setShowManual(true)} style={{background:"#a3e635",border:"none",borderRadius:"7px",color:"#0a0a0a",padding:"7px 12px",fontSize:"11px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:"5px"}}><PlusIcon/>Add</button>
-        </div>
+        {/* Search + filter bar */}
+        {cards.length>0&&(
+          <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search cards…"
+              style={{flex:1,background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#f5f5f4",padding:"7px 10px",fontSize:"12px",outline:"none",minWidth:0}}/>
+            <select value={filterSport} onChange={e=>setFilterSport(e.target.value)}
+              style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#a8a29e",padding:"7px 8px",fontSize:"11px",outline:"none",maxWidth:"110px"}}>
+              {sports.map(s=><option key={s}>{s}</option>)}
+            </select>
+            <select value={sortBy} onChange={e=>setSortBy(e.target.value)}
+              style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"7px",color:"#a8a29e",padding:"7px 8px",fontSize:"11px",outline:"none"}}>
+              <option value="name">A-Z</option>
+              <option value="value">Value ↓</option>
+              <option value="set">Set</option>
+              <option value="sport">Type</option>
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* Stats */}
+      {/* Stats bar */}
       {cards.length>0&&(
-        <div style={{borderBottom:"1px solid #1c1917",padding:"12px 16px",display:"flex",gap:"24px",background:"#0c0c0c"}}>
-          <div><div style={{color:"#57534e",fontSize:"10px",letterSpacing:"0.1em"}}>CARDS</div><div style={{color:"#f5f5f4",fontSize:"20px",fontFamily:"'Bebas Neue'",letterSpacing:"0.05em"}}>{cards.length}</div></div>
-          <div><div style={{color:"#57534e",fontSize:"10px",letterSpacing:"0.1em"}}>PRICED</div><div style={{color:"#f5f5f4",fontSize:"20px",fontFamily:"'Bebas Neue'",letterSpacing:"0.05em"}}>{priced}</div></div>
-          <div><div style={{color:"#57534e",fontSize:"10px",letterSpacing:"0.1em"}}>EST. VALUE</div><div style={{color:"#a3e635",fontSize:"20px",fontFamily:"'Bebas Neue'",letterSpacing:"0.05em"}}>{priced>0?`$${totalValue.toFixed(2)}`:"—"}</div></div>
-          
+        <div style={{borderBottom:"1px solid #1c1917",padding:"10px 16px",display:"flex",gap:"20px",background:"#0c0c0c",alignItems:"center"}}>
+          <div><div style={{color:"#57534e",fontSize:"10px",letterSpacing:"0.1em"}}>CARDS</div><div style={{color:"#f5f5f4",fontSize:"18px",fontFamily:"'Bebas Neue'",letterSpacing:"0.05em"}}>{cards.length}</div></div>
+          <div><div style={{color:"#57534e",fontSize:"10px",letterSpacing:"0.1em"}}>PRICED</div><div style={{color:"#f5f5f4",fontSize:"18px",fontFamily:"'Bebas Neue'",letterSpacing:"0.05em"}}>{priced}</div></div>
+          <div><div style={{color:"#57534e",fontSize:"10px",letterSpacing:"0.1em"}}>EST. VALUE</div><div style={{color:"#a3e635",fontSize:"18px",fontFamily:"'Bebas Neue'",letterSpacing:"0.05em"}}>{priced>0?"$"+totalValue.toFixed(2):"—"}</div></div>
         </div>
       )}
 
@@ -737,6 +882,23 @@ function App(){
         </div>
       )}
 
+      {/* Bulk select bar */}
+      {selectMode&&(
+        <div style={{background:"#450a0a",borderBottom:"1px solid #7f1d1d",padding:"8px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{color:"#f87171",fontSize:"12px"}}>{selected.size} selected</span>
+          <div style={{display:"flex",gap:"8px"}}>
+            <button onClick={toggleSelectAll} style={{background:"transparent",border:"1px solid #7f1d1d",borderRadius:"6px",color:"#f87171",padding:"4px 10px",fontSize:"11px",cursor:"pointer"}}>
+              {selected.size===filtered.length?"Deselect All":"Select All"}
+            </button>
+            <button onClick={deleteSelected} disabled={selected.size===0}
+              style={{background:selected.size>0?"#7f1d1d":"#292524",border:"none",borderRadius:"6px",color:selected.size>0?"#fca5a5":"#44403c",padding:"4px 12px",fontSize:"11px",cursor:selected.size>0?"pointer":"not-allowed",fontWeight:700}}>
+              Delete {selected.size>0?"("+selected.size+")":""}
+            </button>
+            <button onClick={()=>{setSelectMode(false);setSelected(new Set());}} style={{background:"transparent",border:"1px solid #292524",borderRadius:"6px",color:"#78716c",padding:"4px 10px",fontSize:"11px",cursor:"pointer"}}>Cancel</button>
+          </div>
+        </div>
+      )}
+
       {/* List */}
       <div style={{padding:"16px",maxWidth:"700px",margin:"0 auto"}}>
         {cards.length===0?(
@@ -744,21 +906,37 @@ function App(){
             <div style={{fontSize:"48px",marginBottom:"14px"}}>🃏</div>
             <div style={{color:"#57534e",fontSize:"15px",marginBottom:"6px"}}>No cards yet</div>
             <div style={{color:"#44403c",fontSize:"12px",marginBottom:"22px"}}>Import a file or add cards manually</div>
-            <div style={{display:"flex",gap:"10px",justifyContent:"center"}}>
+            <div style={{display:"flex",gap:"10px",justifyContent:"center",flexWrap:"wrap"}}>
               <button onClick={()=>setShowUpload(true)} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"10px",color:"#d6d3d1",padding:"11px 18px",fontSize:"12px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:"7px"}}><UploadIcon/>Import File</button>
-              <button onClick={()=>setShowScan(true)} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"10px",color:"#d6d3d1",padding:"11px 18px",fontSize:"12px",fontWeight:700,cursor:"pointer"}}>📷 Scan Card</button><button onClick={()=>setShowManual(true)} style={{background:"#1a2e05",border:"1px solid #365314",borderRadius:"10px",color:"#a3e635",padding:"11px 18px",fontSize:"12px",fontWeight:700,cursor:"pointer"}}>+ Add Manually</button>
+              <button onClick={()=>setShowScan(true)} style={{background:"#1c1917",border:"1px solid #292524",borderRadius:"10px",color:"#d6d3d1",padding:"11px 18px",fontSize:"12px",fontWeight:700,cursor:"pointer"}}>📷 Scan Card</button>
+              <button onClick={()=>setShowManual(true)} style={{background:"#1a2e05",border:"1px solid #365314",borderRadius:"10px",color:"#a3e635",padding:"11px 18px",fontSize:"12px",fontWeight:700,cursor:"pointer"}}>+ Add Manually</button>
             </div>
-            
           </div>
+        ):filtered.length===0?(
+          <div style={{textAlign:"center",padding:"40px 20px",color:"#57534e",fontSize:"13px"}}>No cards match your search.</div>
         ):(
-          cards.map(card=><CardRow key={card.id} card={card} onLookup={lookupPrice} onDelete={deleteCard}/>)
+          filtered.map(card=>(
+            <div key={card.id} style={{display:"flex",alignItems:"stretch",gap:"0"}}>
+              {selectMode&&(
+                <div onClick={()=>toggleSelect(card.id)}
+                  style={{display:"flex",alignItems:"center",padding:"0 10px",cursor:"pointer",background:selected.has(card.id)?"#1a0505":"transparent"}}>
+                  <div style={{width:"16px",height:"16px",borderRadius:"4px",background:selected.has(card.id)?"#f87171":"transparent",border:`2px solid ${selected.has(card.id)?"#f87171":"#44403c"}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {selected.has(card.id)&&<span style={{color:"#0a0a0a",fontSize:"10px",fontWeight:900}}>✓</span>}
+                  </div>
+                </div>
+              )}
+              <div style={{flex:1}}>
+                <CardRow card={card} onLookup={lookupPrice} onDelete={deleteCard}/>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
       {showScan&&<ScanModal onAdd={addCard} onClose={()=>setShowScan(false)}/>}
       {showManual&&<AddCardModal onAdd={addCard} onClose={()=>setShowManual(false)}/>}
       {showUpload&&<UploadModal onAddCards={addCards} onClose={()=>setShowUpload(false)}/>}
-      
+      {showStats&&<StatsModal cards={cards} onClose={()=>setShowStats(false)}/>}
     </div>
   );
 }
