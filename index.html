@@ -89,6 +89,40 @@ async function fetchCardPrice(card) {
   return result;
 }
 
+
+// ── Price Cache (7-day expiry) ─────────────────────────────────────────────
+const CACHE_DAYS = 7;
+
+function getCachedPrice(card) {
+  try {
+    const key = "cv_price_" + [card.player, card.brand, card.cardNumber, card.grade, card.condition, card.notes].join("|").toLowerCase().replace(/\s+/g,"");
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const {pricing, timestamp} = JSON.parse(raw);
+    const ageMs = Date.now() - timestamp;
+    if (ageMs > CACHE_DAYS * 24 * 60 * 60 * 1000) { localStorage.removeItem(key); return null; }
+    return pricing;
+  } catch { return null; }
+}
+
+function setCachedPrice(card, pricing) {
+  try {
+    const key = "cv_price_" + [card.player, card.brand, card.cardNumber, card.grade, card.condition, card.notes].join("|").toLowerCase().replace(/\s+/g,"");
+    localStorage.setItem(key, JSON.stringify({pricing, timestamp: Date.now()}));
+  } catch {}
+}
+
+function getPriceAge(card) {
+  try {
+    const key = "cv_price_" + [card.player, card.brand, card.cardNumber, card.grade, card.condition, card.notes].join("|").toLowerCase().replace(/\s+/g,"");
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const {timestamp} = JSON.parse(raw);
+    const days = Math.floor((Date.now() - timestamp) / (24*60*60*1000));
+    return days === 0 ? "today" : days === 1 ? "1 day ago" : days + " days ago";
+  } catch { return null; }
+}
+
 // ── CSV Parser ─────────────────────────────────────────────────────────────
 function parseCSV(text){
   const lines=[];let cur="",inQ=false;
@@ -244,12 +278,12 @@ function CardRow({card,onLookup,onDelete}){
           {card.grade?<span style={{display:"inline-block",marginTop:"4px",background:"#0c4a6e",color:"#38bdf8",border:"1px solid #0369a1",padding:"1px 8px",borderRadius:"5px",fontSize:"11px",fontWeight:700}}>{card.gradeType||"PSA"} {card.grade}</span>:<span style={{color:"#57534e",fontSize:"11px"}}>{card.condition||""}</span>}
         </div>
         <div style={{textAlign:"right",minWidth:"60px"}}>
-          {card.pricing?<div><div style={{color:"#a3e635",fontWeight:800,fontSize:"15px",fontFamily:"monospace"}}>${card.pricing.avgPrice!=null?card.pricing.avgPrice.toFixed(2):"—"}</div><div style={{color:"#57534e",fontSize:"10px"}}>avg</div></div>
+          {card.pricing?<div><div style={{color:"#a3e635",fontWeight:800,fontSize:"15px",fontFamily:"monospace"}}>${card.pricing.avgPrice!=null?card.pricing.avgPrice.toFixed(2):"—"}</div><div style={{color:"#57534e",fontSize:"10px"}}>{getPriceAge(card)||"avg"}</div></div>
           :card.loadingPrice?<div style={{color:"#78716c",fontSize:"11px"}}>…</div>:<div style={{color:"#44403c",fontSize:"13px"}}>$—</div>}
         </div>
         <button onClick={e=>{e.stopPropagation();onLookup(card.id);}} disabled={card.loadingPrice}
           style={{background:card.loadingPrice?"#1c1917":"#1a2e05",color:card.loadingPrice?"#44403c":"#a3e635",border:`1px solid ${card.loadingPrice?"#292524":"#365314"}`,borderRadius:"7px",padding:"6px 10px",fontSize:"11px",fontWeight:700,cursor:card.loadingPrice?"not-allowed":"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"4px"}}>
-          {card.loadingPrice?"…":<><SearchIcon/>Price</>}
+          {card.loadingPrice?"…":card.pricing?<><SearchIcon/>Refresh</>:<><SearchIcon/>Price</>}
         </button>
         <button onClick={e=>{e.stopPropagation();onDelete(card.id);}}
           style={{background:"transparent",color:"#57534e",border:"1px solid #292524",borderRadius:"7px",padding:"6px 8px",cursor:"pointer",display:"flex",alignItems:"center"}}>
