@@ -484,9 +484,44 @@ function App(){
   };
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
   const lookupAll=async()=>{
-    
-    for(const card of cards){if(!card.pricing&&!card.loadingPrice)await lookupPrice(card.id);}
+    const uncached=[];
+    for(const card of cards){
+      if(card.loadingPrice)continue;
+      const cached=getCachedPrice(card);
+      if(cached){setCards(c=>c.map(c2=>c2.id===card.id?{...c2,pricing:cached}:c2));}
+      else uncached.push(card);
+    }
+    if(uncached.length===0){alert("All prices are up to date!");return;}
+    const estMin=Math.ceil(uncached.length*12/60);
+    if(!window.confirm("Fetch prices for "+uncached.length+" cards?\nEst. time: ~"+estMin+" min\nEst. cost: ~$"+(uncached.length*0.002).toFixed(2)+"\n\nRate limited requests retry automatically."))return;
+    for(let i=0;i<uncached.length;i++){
+      const card=uncached[i];
+      setPriceAllStatus({current:i+1,total:uncached.length,cardName:card.player,retrying:false});
+      let attempts=0;
+      while(attempts<3){
+        try{
+          const pricing=await fetchCardPrice(card);
+          setCachedPrice(card,pricing);
+          setCards(c=>c.map(c2=>c2.id===card.id?{...c2,pricing,loadingPrice:false}:c2));
+          break;
+        }catch(e){
+          attempts++;
+          if(e.message&&e.message.includes("rate_limit")&&attempts<3){
+            setPriceAllStatus(s=>({...s,retrying:true}));
+            await sleep(30000);
+            setPriceAllStatus(s=>({...s,retrying:false}));
+          }else{
+            setCards(c=>c.map(c2=>c2.id===card.id?{...c2,loadingPrice:false,pricing:{summary:"Error: "+e.message,avgPrice:null,lowPrice:null,highPrice:null,marketTrend:"Insufficient Data",recentSales:[],searchQuery:card.player}}:c2));
+            break;
+          }
+        }
+      }
+      if(i<uncached.length-1)await sleep(12000);
+    }
+    setPriceAllStatus(null);
   };
 
   const totalValue=cards.reduce((s,c)=>s+(c.pricing?.avgPrice||0),0);
