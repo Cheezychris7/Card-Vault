@@ -520,6 +520,20 @@ function App(){
         </div>
       )}
 
+      {/* Progress bar */}
+      {priceAllStatus&&(
+        <div style={{position:"sticky",top:0,zIndex:8,background:"#0f1a00",borderBottom:"2px solid #4d7c0f",padding:"8px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}}>
+            <span style={{color:"#a3e635",fontSize:"12px",fontWeight:700}}>⟳ Pricing collection…</span>
+            <span style={{color:"#a3e635",fontSize:"12px",fontWeight:700}}>{priceAllStatus.current} / {priceAllStatus.total}</span>
+          </div>
+          <div style={{background:"#1c1917",borderRadius:"4px",height:"6px",marginBottom:"4px"}}>
+            <div style={{background:"#a3e635",borderRadius:"4px",height:"6px",width:`${(priceAllStatus.current/priceAllStatus.total)*100}%`,transition:"width 0.5s"}}/>
+          </div>
+          <div style={{color:"#78716c",fontSize:"11px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>↳ {priceAllStatus.cardName}{priceAllStatus.retrying?" — rate limited, waiting 30s…":""}</div>
+        </div>
+      )}
+
       {/* List */}
       <div style={{padding:"16px",maxWidth:"700px",margin:"0 auto"}}>
         {cards.length===0?(
@@ -538,18 +552,6 @@ function App(){
         )}
       </div>
 
-      {priceAllStatus&&(
-        <div style={{position:"sticky",top:"56px",left:0,right:0,background:"#0f1a00",borderBottom:"2px solid #365314",borderTop:"1px solid #365314",padding:"10px 16px",zIndex:9}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"5px"}}>
-            <span style={{color:"#a3e635",fontSize:"12px",fontWeight:700}}>⟳ Pricing collection…</span>
-            <span style={{color:"#a3e635",fontSize:"12px",fontWeight:700}}>{priceAllStatus.current} / {priceAllStatus.total}</span>
-          </div>
-          <div style={{background:"#1c1917",borderRadius:"4px",height:"6px",marginBottom:"5px"}}>
-            <div style={{background:"#a3e635",borderRadius:"4px",height:"6px",width:`${(priceAllStatus.current/priceAllStatus.total)*100}%`,transition:"width 0.5s"}}/>
-          </div>
-          <div style={{color:"#78716c",fontSize:"11px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>↳ {priceAllStatus.cardName}{priceAllStatus.retrying?" (rate limited, retrying…)":""}</div>
-        </div>
-      )}
       {showManual&&<AddCardModal onAdd={addCard} onClose={()=>setShowManual(false)}/>}
       {showUpload&&<UploadModal onAddCards={addCards} onClose={()=>setShowUpload(false)}/>}
       
