@@ -654,8 +654,17 @@ function App(){
       else uncached.push(card);
     }
     if(uncached.length===0){alert("All prices are up to date!");return;}
-    const estMin=Math.ceil(uncached.length*3/60);
-    if(!window.confirm("Fetch prices for "+uncached.length+" cards?\nEst. time: ~"+estMin+" min\nEst. cost: ~$"+(uncached.length*0.002).toFixed(2)+"\n\nRate limited requests retry automatically."))return;
+    const freeMTG=uncached.filter(c=>c.sport==="Magic: The Gathering").length;
+    const freePoke=uncached.filter(c=>c.sport==="Pokemon").length;
+    const paidCards=uncached.length-freeMTG-freePoke;
+    const estSec=freeMTG*1+freePoke*1+paidCards*3;
+    const estMin=estSec<60?"<1":Math.ceil(estSec/60);
+    const estCost=(paidCards*0.002).toFixed(2);
+    const breakdown=[];
+    if(freeMTG>0)breakdown.push(freeMTG+" MTG (free via Scryfall)");
+    if(freePoke>0)breakdown.push(freePoke+" Pokemon (free via TCGPlayer)");
+    if(paidCards>0)breakdown.push(paidCards+" other (~$"+estCost+" API cost)");
+    if(!window.confirm("Fetch prices for "+uncached.length+" cards?\nEst. time: ~"+estMin+" min\n\n"+breakdown.join("\n")+"\n\nRate limited requests retry automatically."))return;
     for(let i=0;i<uncached.length;i++){
       const card=uncached[i];
       setPriceAllStatus({current:i+1,total:uncached.length,cardName:card.player,retrying:false});
