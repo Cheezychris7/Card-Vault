@@ -41,37 +41,63 @@ const UploadIcon=()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none"
 const CardIcon=()=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>;
 
 // ── Pricing API ────────────────────────────────────────────────────────────
-async function fetchCardPrice(card) {
-  const isTCG=["Magic: The Gathering","Pokemon","Yu-Gi-Oh"].includes(card.sport);
+// ── Scryfall (MTG) price lookup ───────────────────────────────────────────
+async function fetchScryfallPrice(card) {
+  const name=card.player.replace(/\s*\(.*?\)\s*/g,"").trim();
+  let data=null;
+  if(card.brand&&card.cardNumber){
+    const setRes=await fetch("https://api.scryfall.com/sets");
+    const sets=await setRes.json();
+    const setObj=sets.data&&sets.data.find(s=>s.name.toLowerCase()===card.brand.toLowerCase()||s.code.toLowerCase()===card.brand.toLowerCase());
+    if(setObj){const r=await fetch("https://api.scryfall.com/cards/"+setObj.code+"/"+card.cardNumber);if(r.ok)data=await r.json();}
+  }
+  if(!data||data.object==="error"){
+    const r=await fetch("https://api.scryfall.com/cards/named?fuzzy="+encodeURIComponent(name)+(card.brand?"&set="+encodeURIComponent(card.brand):""));
+    if(r.ok)data=await r.json();
+    else{const r2=await fetch("https://api.scryfall.com/cards/named?fuzzy="+encodeURIComponent(name));if(r2.ok)data=await r2.json();else throw new Error("Not found on Scryfall: "+card.player);}
+  }
+  if(!data||data.object==="error")throw new Error("Card not found: "+card.player);
+  const prices=data.prices||{};
+  const isFoil=card.notes&&/foil/i.test(card.notes);
+  const raw=isFoil?(prices.usd_foil||prices.usd):(prices.usd||prices.usd_foil);
+  const avg=raw?parseFloat(raw):null;
+  const setName=data.set_name||card.brand||"Unknown Set";
+  const summary=data.name+" from "+setName+" ("+data.rarity+"). TCGPlayer market price: $"+(avg!=null?avg.toFixed(2):"N/A")+". "+(isFoil?"Foil pricing applied.":"Non-foil pricing.");
+  return{lowPrice:avg?avg*0.85:null,highPrice:avg?avg*1.15:null,avgPrice:avg,recentSales:[{price:avg,condition:"Near Mint",date:"Current",source:"TCGPlayer via Scryfall",notes:isFoil?"Foil":"Non-foil"}],marketTrend:"Stable",summary,searchQuery:card.player+" "+setName,dataSource:"Scryfall / TCGPlayer (free API)"};
+}
+
+// ── Pokemon TCG price lookup ──────────────────────────────────────────────
+async function fetchPokemonPrice(card) {
+  const name=card.player.replace(/\s*\(.*?\)\s*/g,"").trim();
+  let url="https://api.pokemontcg.io/v2/cards?q=name:"+encodeURIComponent('"'+name+'"');
+  if(card.brand)url+=" set.name:"+encodeURIComponent('"'+card.brand+'"');
+  if(card.cardNumber)url+=" number:"+encodeURIComponent(card.cardNumber);
+  url+="&pageSize=5";
+  const res=await fetch(url);
+  const data=await res.json();
+  if(!data.data||data.data.length===0)throw new Error("Not found in Pokemon TCG database: "+card.player);
+  const match=data.data[0];
+  const prices=match.tcgplayer?.prices;
+  let avg=null,low=null,high=null;
+  if(prices){const tier=prices.holofoil||prices.reverseHolofoil||prices.normal||prices["1stEditionHolofoil"]||prices["1stEditionNormal"];if(tier){avg=tier.market||tier.mid||null;low=tier.low||null;high=tier.high||null;}}
+  const setName=match.set?.name||card.brand||"Unknown Set";
+  const summary=match.name+" — "+setName+" #"+(match.number||card.cardNumber)+". Market: $"+(avg!=null?avg.toFixed(2):"N/A")+". "+(match.rarity||"")+" TCGPlayer pricing.";
+  return{lowPrice:low,highPrice:high,avgPrice:avg,recentSales:[{price:avg,condition:"Near Mint",date:"Current",source:"TCGPlayer",notes:match.rarity||""}],marketTrend:"Stable",summary,searchQuery:card.player+" "+setName,dataSource:"Pokemon TCG API / TCGPlayer (free)"};
+}
+
+// ── Claude/Cloudflare price lookup (sports + other) ───────────────────────
+async function fetchClaudePrice(card) {
   const parts=[];
   if(card.year)parts.push(card.year);
   parts.push(card.player);
   if(card.brand)parts.push(card.brand);
-  if(!isTCG)parts.push(card.sport+" card");
+  parts.push(card.sport+" card");
   if(card.notes)parts.push(card.notes);
   if(card.grade)parts.push((card.gradeType||"PSA")+" "+card.grade);
   if(card.rookie)parts.push("rookie");
   const searchQuery=parts.join(" ").trim();
-  const platforms=isTCG?"TCGPlayer, Card Kingdom, eBay, CardMarket, and Star City Games":"eBay, COMC, Beckett Marketplace, PWCC, and MySlabs";
-
-  const userMessage="Search for the current resale price of this trading card: "+searchQuery+"\n"+
-    "Card: "+card.player+" | Set: "+(card.brand||"unknown")+" | #"+(card.cardNumber||"?")+"\n"+
-    "Type: "+card.sport+" | Condition: "+(card.grade?(card.gradeType||"PSA")+" "+card.grade:card.condition||"Near Mint")+(card.notes?" | Variant: "+card.notes:"")+"\n\n"+
-    "Search "+platforms+" for recent sold prices or current listings.\n\n"+
-    "Respond with ONLY a raw JSON object — no prose, no markdown:\n"+
-    '{"lowPrice":1.50,"highPrice":5.00,"avgPrice":3.00,"recentSales":[{"price":3.00,"condition":"NM","date":"May 2026","source":"TCGPlayer","notes":""}],"marketTrend":"Stable","summary":"2-3 sentence market summary.","searchQuery":"'+searchQuery.replace(/"/g,"'")+'","dataSource":"TCGPlayer, eBay"}';
-
-  const headers={"Content-Type":"application/json"};
-
-  const res=await fetch("https://card-vault-api.chris-9ca.workers.dev/api",{
-    method:"POST",headers,
-    body:JSON.stringify({
-      model:"claude-sonnet-4-5",max_tokens:1500,
-      system:"You are a trading card price lookup tool. Always respond with a single raw JSON object and nothing else.",
-      tools:[{type:"web_search_20250305",name:"web_search"}],
-      messages:[{role:"user",content:userMessage}]
-    })
-  });
+  const userMessage="Search for the current resale price of this trading card: "+searchQuery+"\nCard: "+card.player+" | Set: "+(card.brand||"unknown")+" | #"+(card.cardNumber||"?")+"\nType: "+card.sport+" | Condition: "+(card.grade?(card.gradeType||"PSA")+" "+card.grade:card.condition||"Near Mint")+(card.notes?" | Variant: "+card.notes:"")+"\n\nSearch eBay, COMC, Beckett Marketplace, PWCC, and MySlabs for recent sold prices.\n\nRespond with ONLY a raw JSON object:\n{\"lowPrice\":1.50,\"highPrice\":5.00,\"avgPrice\":3.00,\"recentSales\":[{\"price\":3.00,\"condition\":\"NM\",\"date\":\"May 2026\",\"source\":\"eBay\",\"notes\":\"\"}],\"marketTrend\":\"Stable\",\"summary\":\"summary here.\",\"searchQuery\":\""+searchQuery.replace(/"/g,"'")+"\",\"dataSource\":\"eBay, COMC\"}";
+  const res=await fetch("https://card-vault-api.chris-9ca.workers.dev/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1500,system:"You are a trading card price lookup tool. Always respond with a single raw JSON object and nothing else.",tools:[{type:"web_search_20250305",name:"web_search"}],messages:[{role:"user",content:userMessage}]})});
   const raw=await res.text();
   let data;
   try{data=JSON.parse(raw);}catch(e){throw new Error("HTTP "+res.status+": "+raw.slice(0,150));}
@@ -79,14 +105,24 @@ async function fetchCardPrice(card) {
   const txt=data.content.filter(b=>b.type==="text").map(b=>b.text).join("\n");
   const cleaned=txt.replace(/```json|```/g,"").trim();
   let jsonStr=null,depth=0,start=-1;
-  for(let i=0;i<cleaned.length;i++){
-    if(cleaned[i]==="{"){if(depth===0)start=i;depth++;}
-    else if(cleaned[i]==="}"){depth--;if(depth===0&&start!==-1){jsonStr=cleaned.slice(start,i+1);break;}}
-  }
+  for(let i=0;i<cleaned.length;i++){if(cleaned[i]==="{"){if(depth===0)start=i;depth++;}else if(cleaned[i]==="}"){depth--;if(depth===0&&start!==-1){jsonStr=cleaned.slice(start,i+1);break;}}}
   if(!jsonStr)throw new Error("No JSON in response: "+cleaned.slice(0,200));
   const result=JSON.parse(jsonStr);
   if(!result.searchQuery)result.searchQuery=searchQuery;
   return result;
+}
+
+// ── Price router ──────────────────────────────────────────────────────────
+async function fetchCardPrice(card) {
+  if(card.sport==="Magic: The Gathering"){
+    try{return await fetchScryfallPrice(card);}
+    catch(e){console.warn("Scryfall failed, using Claude:",e.message);return await fetchClaudePrice(card);}
+  }
+  if(card.sport==="Pokemon"){
+    try{return await fetchPokemonPrice(card);}
+    catch(e){console.warn("Pokemon API failed, using Claude:",e.message);return await fetchClaudePrice(card);}
+  }
+  return await fetchClaudePrice(card);
 }
 
 
